@@ -25,16 +25,23 @@ jobs:
             25
 
       - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
 
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x gradlew
 
-      - name: Compile plugin
-        run: ./gradlew compileJava :nms:java21:compileJava :nms:java25:compileJava --parallel --build-cache
+      # ИЗМЕНЕНО: вместо compileJava запускаем полную сборку (shadowJar или build)
+      - name: Build plugin jar
+        run: ./gradlew build --build-cache
 
+      # ДОБАВЛЕНО: сохраняем готовый файл, чтобы его можно было скачать
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Oraxen-Plugin
+          path: build/libs/Oraxen-*.jar
   test:
     name: Run tests
     runs-on: ubuntu-latest
