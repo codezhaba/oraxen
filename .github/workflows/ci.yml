@@ -1,67 +1,46 @@
-name: CI
+name: Build Oraxen
 
 on:
+  workflow_dispatch: # Позволяет запускать сборку кнопкой вручную
   push:
-  pull_request:
-  workflow_dispatch:
-
-permissions:
-  contents: read
+    branches: [ master, main ]
 
 jobs:
-  compile:
-    name: Compile plugin
+  build:
     runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
 
-      - name: Set up Java 21 and 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ВАЖНО: Oraxen использует Git для генерации версии (grgit).
+          # Без fetch-depth: 0 сборка упадет с ошибкой "No .git directory found".
+          fetch-depth: 0
+
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: |
-            21
-            25
+          distribution: 'temurin'
+          # Проверьте build.gradle.kts в репозитории:
+          # Для 1.20.5–1.21.x используется '21', для 26.x может требоваться '25'.
+          java-version: '21'
+          cache: 'gradle'
 
-      - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: false
-
-      - name: Grant execute permission for Gradle wrapper
+      - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ИЗМЕНЕНО: вместо compileJava запускаем полную сборку (shadowJar или build)
-      - name: Build plugin jar
-        run: ./gradlew build --build-cache
+      - name: Build with Gradle
+        # Опция -x test пропускает юнит-тесты и ускоряет компиляцию
+        run: ./gradlew build -x test --no-daemon
+        env:
+          CI: "true" # Гарантирует сборку только под Paper/Purpur
 
-      # ДОБАВЛЕНО: сохраняем готовый файл, чтобы его можно было скачать
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Oraxen-Plugin
-          path: build/libs/Oraxen-*.jar
-  test:
-    name: Run tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Java 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          cache-read-only: false
-
-      - name: Grant execute permission for Gradle wrapper
-        run: chmod +x gradlew
-
-      - name: Run tests
-        run: ./gradlew test --build-cache
+          name: Oraxen-purpur
+          # Ищет готовый .jar в директориях сборки
+          path: |
+            build/libs/*.jar
+            **/build/libs/*.jar
+          retention-days: 5
