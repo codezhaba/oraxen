@@ -1,4 +1,4 @@
-name: Build and Package Oraxen
+name: Build Oraxen
 
 on:
   push:
@@ -16,15 +16,18 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Нужно для Grgit, чтобы сформировать корректную версию плагина
+          fetch-depth: 0
 
-      - name: Set up Java 21 and 25
+      - name: Set up Java 25 and 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
+          # ВАЖНО: 21 идет последней!
+          # Тогда JAVA_HOME будет Java 21 (корневой проект соберется под 21),
+          # а Java 25 будет обнаружена Gradle Toolchain для сборки :nms:java25 под 26.2
           java-version: |
-            21
             25
+            21
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v6
@@ -34,18 +37,19 @@ jobs:
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x gradlew
 
-      - name: Package plugin
-        # Собираем NMS-модули и упаковываем итоговый JAR-файл
-        run: ./gradlew :nms:java21:compileJava :nms:java25:compileJava assemble -x test --parallel --build-cache
+      - name: Build shadowJar
+        # В Oraxen итоговый fat-jar собирается задачей shadowJar
+        run: ./gradlew shadowJar -x test --parallel --build-cache
         env:
           CI: "true"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Oraxen-purpur
+          name: Oraxen-purpur-26.2
           path: |
             build/libs/*.jar
+            **/build/libs/*.jar
             !build/libs/*-sources.jar
             !build/libs/*-javadoc.jar
           retention-days: 5
